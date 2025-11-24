@@ -5,6 +5,9 @@
 rm -rf build && cmake -S . -B build && cmake --build build && ./build/src/game_ai && ./build/part2/algorithm_selector
 
 ```
+```bash
+&& python3 -m http.server 8000
+```
 
 ## Цель работы
 

@@ -1,43 +1,71 @@
 #include <iostream>
+#include <fstream>
 #include <vector>
+#include <filesystem>
+
 #include "game.h"
 #include "ai.h"
 
 using namespace std;
 
-void printPath(const vector<Pos> &path, const string &label) {
-    cout << label << " (длина " << path.size() << "):\n";
-    for (auto &p : path) {
-        cout << "(" << p.r << "," << p.c << ") ";
+void writeJson(const GameState &g,
+               const vector<Pos> &pr,
+               const vector<Pos> &pe,
+               const vector<Pos> &pb)
+{
+    std::filesystem::create_directories("output");
+
+    ofstream f("output/map_latest.json");
+    f << "{\n";
+    f << "  \"n\": " << g.n << ",\n";
+    f << "  \"m\": " << g.m << ",\n";
+
+    f << "  \"grid\": [\n";
+    for (int i = 0; i < g.n; i++) {
+        f << "    \"" << g.grid[i] << "\"";
+        if (i + 1 < g.n) f << ",";
+        f << "\n";
     }
-    cout << "\n\n";
+    f << "  ],\n";
+
+    f << "  \"player\": [" << g.player.r << "," << g.player.c << "],\n";
+
+    auto writeList = [&](const string &name, const vector<Pos> &lst) {
+        f << "  \"" << name << "\": [";
+        for (int i = 0; i < lst.size(); i++) {
+            f << "[" << lst[i].r << "," << lst[i].c << "]";
+            if (i + 1 < lst.size()) f << ",";
+        }
+        f << "],\n";
+    };
+
+    writeList("resources", g.resources);
+    writeList("enemies", g.enemies);
+
+    f << "  \"base\": [" << g.base.r << "," << g.base.c << "],\n";
+
+    writeList("path_resource", pr);
+    writeList("path_enemy",    pe);
+    writeList("path_base",     pb);
+
+    f << "  \"ok\": true\n}\n";
 }
 
 int main() {
-    vector<string> grid = {
-        "##########",
-        "#P...R...#",
-        "#..##....#",
-        "#..E....B#",
-        "#....R...#",
-        "##########"
-    };
+    const int N = 10;
+    const int M = 10;
 
-    GameState g = makeGameState(grid);
+    GameState g = makeRandomGameState(N, M);
 
-    // Уровень 1: поиск ресурса
-    auto resourcePath = findResourcePath(g);
-    printPath(resourcePath, "Путь к ресурсу");
+    auto pr = findResourcePath(g);
+    int ei = chooseEnemyIndex(g);
+    auto pe = pathToEnemy(g, ei);
+    auto pb = pathToBase(g);
 
-    // Уровень 2: атака врага
-    int enemyIdx = chooseEnemyIndex(g);
-    cout << "Выбран враг с индексом " << enemyIdx << "\n";
-    auto enemyPath = pathToEnemy(g, enemyIdx);
-    printPath(enemyPath, "Путь к врагу");
+    writeJson(g, pr, pe, pb);
 
-    // Уровень 3: захват базы
-    auto basePath = pathToBase(g);
-    printPath(basePath, "Путь к базе");
+    printGrid(g);
+    cout << "JSON записан в output/map_latest.json\n";
 
     return 0;
 }

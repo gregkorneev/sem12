@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Greedy DFS – визуализация (часть 1 семинара 12)</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #111;
+            color: #eee;
+            margin: 20px;
+        }
+
+        h1 {
+            margin-bottom: 0.2rem;
+        }
+
+        .grid {
+            display: inline-grid;
+            gap: 2px;
+            margin: 1rem 0;
+        }
+
+        .cell {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+
+        .wall {
+            background: #444;
+        }
+
+        .empty {
+            background: #222;
+        }
+
+        .resource {
+            background: #2e7d32;
+        }
+
+        .enemy {
+            background: #b71c1c;
+        }
+
+        .base {
+            background: #0d47a1;
+        }
+
+        .player {
+            background: #fdd835;
+            color: #000;
+        }
+
+        .path-step {
+            outline: 2px solid #ff9800;
+        }
+
+        .path-step.resource {
+            outline-color: #4caf50;
+        }
+
+        .path-step.enemy {
+            outline-color: #ef5350;
+        }
+
+        .path-step.base {
+            outline-color: #42a5f5;
+        }
+
+        .controls {
+            margin-bottom: 1rem;
+        }
+
+        .controls button {
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .legend {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .legend span {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 1rem;
+        }
+
+        .box {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            margin-right: 4px;
+            display: inline-block;
+        }
+
+        #error {
+            color: #ef5350;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+<h1>Greedy DFS – визуализация (часть 1)</h1>
+<p>
+    Карта и пути загружаются из файла <code>output/map_latest.json</code>, который генерирует бинарник
+    <code>game_ai</code>. HTML сам ничего не генерирует, только показывает результат работы C++.
+</p>
+
+<div id="gridContainer" class="grid"></div>
+
+<div class="controls">
+    <button onclick="showPath('resource')">Путь к ресурсу</button>
+    <button onclick="showPath('enemy')">Путь к врагу</button>
+    <button onclick="showPath('base')">Путь к базе</button>
+    <button onclick="clearPath()">Сброс пути</button>
+</div>
+
+<p id="info"></p>
+<p id="error"></p>
+
+<div class="legend">
+    <span><span class="box" style="background:#444;"></span>стена (#)</span>
+    <span><span class="box" style="background:#222;"></span>пусто (.)</span>
+    <span><span class="box" style="background:#2e7d32;"></span>ресурс (R)</span>
+    <span><span class="box" style="background:#b71c1c;"></span>враг (E)</span>
+    <span><span class="box" style="background:#0d47a1;"></span>база (B)</span>
+    <span><span class="box" style="background:#fdd835;"></span>игрок (P)</span>
+</div>
+
+<script>
+    const gridContainer = document.getElementById('gridContainer');
+    const infoEl = document.getElementById('info');
+    const errorEl = document.getElementById('error');
+
+    let data = null;          // сюда загрузим JSON
+    let nRows = 0;
+    let nCols = 0;
+
+    function cellId(r, c) {
+        return `cell-${r}-${c}`;
+    }
+
+    function clearPath() {
+        if (!data) return;
+        document.querySelectorAll('.cell').forEach(cell => {
+            cell.classList.remove('path-step', 'resource', 'enemy', 'base', 'player');
+        });
+        redrawStatic();
+        infoEl.textContent = "";
+    }
+
+    function redrawStatic() {
+        if (!data) return;
+
+        // сбрасываем классы и текст
+        document.querySelectorAll('.cell').forEach(cell => {
+            cell.textContent = "";
+            cell.className = 'cell';
+        });
+
+        // сетка
+        for (let r = 0; r < nRows; r++) {
+            const rowStr = data.grid[r];
+            for (let c = 0; c < nCols; c++) {
+                const ch = rowStr[c];
+                const cell = document.getElementById(cellId(r, c));
+                if (!cell) continue;
+
+                if (ch === '#') {
+                    cell.classList.add('wall');
+                } else {
+                    cell.classList.add('empty');
+                }
+
+                if (ch === 'R') {
+                    cell.classList.add('resource');
+                    cell.textContent = 'R';
+                }
+                if (ch === 'E') {
+                    cell.classList.add('enemy');
+                    cell.textContent = 'E';
+                }
+                if (ch === 'B') {
+                    cell.classList.add('base');
+                    cell.textContent = 'B';
+                }
+            }
+        }
+
+        // игрок
+        if (Array.isArray(data.player) && data.player.length === 2) {
+            const pr = data.player[0];
+            const pc = data.player[1];
+            const cell = document.getElementById(cellId(pr, pc));
+            if (cell) {
+                cell.classList.add('player');
+                cell.textContent = 'P';
+            }
+        }
+    }
+
+    function showPath(type) {
+        if (!data) return;
+        clearPath(); // очищает и заново рисует статику
+
+        let path = [];
+        let label = "";
+        let cls = "";
+
+        if (type === 'resource') {
+            path = data.path_resource || [];
+            label = "Путь к ресурсу";
+            cls = "resource";
+        } else if (type === 'enemy') {
+            path = data.path_enemy || [];
+            label = "Путь к врагу";
+            cls = "enemy";
+        } else if (type === 'base') {
+            path = data.path_base || [];
+            label = "Путь к базе";
+            cls = "base";
+        }
+
+        if (!Array.isArray(path) || path.length === 0) {
+            infoEl.textContent = label + ": путь не найден (вероятно, целевая область недостижима).";
+            return;
+        }
+
+        path.forEach((pos, idx) => {
+            if (!Array.isArray(pos) || pos.length !== 2) return;
+            const r = pos[0];
+            const c = pos[1];
+            const cell = document.getElementById(cellId(r, c));
+            if (!cell) return;
+            cell.classList.add('path-step', cls);
+            cell.textContent = (idx === 0 ? "P" : idx);
+        });
+
+        infoEl.textContent = `${label}: длина пути ${path.length}. Путь сгенерирован Greedy DFS в C++ и загружен из JSON.`;
+    }
+
+    function createGridDom(rows, cols) {
+        gridContainer.innerHTML = "";
+        gridContainer.style.gridTemplateColumns = `repeat(${cols}, 32px)`;
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const div = document.createElement('div');
+                div.id = cellId(r, c);
+                div.classList.add('cell');
+                gridContainer.appendChild(div);
+            }
+        }
+    }
+
+    async function loadJson() {
+        try {
+            // HTML лежит в docs/, JSON в ../output/
+            const resp = await fetch("../output/map_latest.json");
+            if (!resp.ok) {
+                throw new Error("HTTP " + resp.status);
+            }
+            data = await resp.json();
+        } catch (e) {
+            errorEl.textContent =
+                "Ошибка загрузки ../output/map_latest.json. " +
+                "Убедитесь, что вы запустили game_ai и открываете HTML через локальный сервер, а не напрямую file://. " +
+                "Подробности: " + e.message;
+            return;
+        }
+
+        errorEl.textContent = "";
+
+        nRows = data.n;
+        nCols = data.m;
+
+        createGridDom(nRows, nCols);
+        redrawStatic();
+
+        infoEl.textContent =
+            "Карта загружена из JSON. Вы можете посмотреть путь к ресурсу, врагу и базе, " +
+            "который посчитал Greedy DFS в C++.";
+    }
+
+    // Загружаем JSON сразу при открытии страницы
+    loadJson();
+</script>
+</body>
+</html>

@@ -51,21 +51,43 @@ void writeJson(const GameState &g,
     f << "  \"ok\": true\n}\n";
 }
 
+void printPath(const vector<Pos> &path, const string &label) {
+    cout << label << " (длина " << path.size() << "): ";
+    if (path.empty()) {
+        cout << "путь не найден";
+    } else {
+        for (auto &p : path) {
+            cout << "(" << p.r << "," << p.c << ") ";
+        }
+    }
+    cout << "\n";
+}
+
 int main() {
     const int N = 10;
     const int M = 10;
 
     GameState g = makeRandomGameState(N, M);
 
+    // пути
     auto pr = findResourcePath(g);
-    int ei = chooseEnemyIndex(g);
-    auto pe = pathToEnemy(g, ei);
+    int enemyIdx = chooseEnemyIndex(g);
+    vector<Pos> pe;
+    if (enemyIdx >= 0) {
+        pe = pathToEnemy(g, enemyIdx);
+    }
     auto pb = pathToBase(g);
 
+    // JSON для HTML-визуализации
     writeJson(g, pr, pe, pb);
 
+    // Вывод в терминал
     printGrid(g);
-    cout << "JSON записан в output/map_latest.json\n";
+    printPath(pr, "Путь к ресурсу");
+    printPath(pe, "Путь к врагу");
+    printPath(pb, "Путь к базе");
+
+    cout << "\nJSON записан в output/map_latest.json\n";
 
     return 0;
 }

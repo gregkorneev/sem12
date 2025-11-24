@@ -8,5 +8,5 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Часть 1: ИИ для игры (Greedy DFS)
 add_subdirectory(src)
 
-# Часть 2: Выбор алгоритма для конкретной системы
+# Часть 2: выбор алгоритма для конкретной системы
 add_subdirectory(part2)

@@ -2,7 +2,8 @@
 
 Команда для запуска
 ```bash
-rm -rf build && cmake -B build && cmake --build build && ./build/game_ai
+rm -rf build && cmake -S . -B build && cmake --build build && ./build/src/game_ai && ./build/part2/algorithm_selector
+
 ```
 
 ## Цель работы

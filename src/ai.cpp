@@ -3,8 +3,6 @@
 #include <climits>
 
 using namespace std;
-
-// Уровень 1: поиск ресурса
 vector<Pos> findResourcePath(const GameState &g) {
     if (g.resources.empty()) return {};
 

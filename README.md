@@ -6,7 +6,7 @@ rm -rf build && cmake -S . -B build && cmake --build build && ./build/src/game_a
 
 ```
 ```bash
-&& python3 -m http.server 8000
+python3 -m http.server 8000
 ```
 
 ## Цель работы
